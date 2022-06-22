@@ -1,0 +1,31 @@
+{
+    "os": "macOS-12.1-arm64-arm-64bit",
+    "python": "3.9.10",
+    "heartbeatAt": "2022-06-22T05:09:18.327415",
+    "startedAt": "2022-06-22T05:09:17.810059",
+    "docker": null,
+    "cpu_count": 10,
+    "cuda": null,
+    "args": [
+        "--model_name_or_path",
+        "gpt2",
+        "--dataset_name",
+        "wikitext",
+        "--dataset_config_name",
+        "wikitext-2-raw-v1",
+        "--per_device_train_batch_size",
+        "8",
+        "--per_device_eval_batch_size",
+        "8",
+        "--do_train",
+        "--do_eval",
+        "--output_dir",
+        "/tmp/test-clm"
+    ],
+    "state": "running",
+    "program": "/Users/alashaabana/.bittensor/model_guide/run_clm.py",
+    "codePath": "run_clm.py",
+    "host": "Alas-MacBook-Pro-2.local",
+    "username": "alashaabana",
+    "executable": "/opt/homebrew/Caskroom/miniforge/base/envs/model_guide/bin/python"
+}
