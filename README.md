@@ -21,7 +21,7 @@ limitations under the License.
 
 Fine-tuning (or training from scratch) the library models for language modeling on a text dataset for GPT, GPT-2. Causal languages like this are trained or fine-tuned using a causal language modeling (CLM) loss.
 
-The following examples, we will run on datasets hosted on Bittensor's IPFS swarm, on HuggingFace's dataset hub, [hub](https://huggingface.co/datasets) or with your own text files for training and validation. We give examples of both below.
+The following examples, we will run on datasets hosted on Bittensor's IPFS mountain dataset, on HuggingFace's dataset [hub](https://huggingface.co/datasets) or with your own text files for training and validation. We give examples of both below.
 
 ### GPT-2/GPT and causal language modeling
 
