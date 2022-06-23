@@ -162,7 +162,14 @@ class DataTrainingArguments:
             )
         },
     )
-
+    num_batches: Optional[int] = field(
+        default=100,
+        metadata={
+            "help": (
+                "Number of batches to pull from Bittensor dataloader."
+            )
+        }
+    )
     block_size: Optional[int] = field(
         default=None,
         metadata={
@@ -297,14 +304,20 @@ def main():
             block_size = data_args.block_size
         )
 
-        dataloader = bittensor_dataset.dataloader()
+        # Set up Bittensor dataloader 
+        dataloader = bittensor_dataset.dataloader(
+            data_args.num_batches
+        )
         bittensor_raw_dataset = {"text": []}
-
         for batch in dataloader:
             bittensor_raw_dataset["text"].append(''.join(batch))
         
         raw_datasets = Dataset.from_dict(bittensor_raw_dataset)
-        raw_datasets = raw_datasets.train_test_split(test_size=data_args.validation_split_percentage)
+        raw_datasets = raw_datasets.train_test_split(test_size=data_args.validation_split_percentage/100)
+        raw_datasets_test_valid = raw_datasets['test'].train_test_split(test_size=0.5)
+        raw_datasets['test'] = raw_datasets_test_valid['train']
+        raw_datasets['validation'] = raw_datasets_test_valid['test']
+
         
     else:
         data_files = {}
