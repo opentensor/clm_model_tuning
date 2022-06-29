@@ -1,5 +1,5 @@
 python run_clm.py \
-    --model_name_or_path facebook/opt-30b \
+    --model_name_or_path facebook/opt-1.3b \
     --dataset_name bittensor \
     --dataset_config_name bittensor \
     --per_device_train_batch_size 8 \
