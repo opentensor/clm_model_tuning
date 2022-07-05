@@ -65,6 +65,7 @@ MODEL_CONFIG_CLASSES = list(MODEL_FOR_CAUSAL_LM_MAPPING.keys())
 MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 
 
+
 @dataclass
 class ModelArguments:
     """
@@ -109,6 +110,10 @@ class ModelArguments:
     model_revision: str = field(
         default="main",
         metadata={"help": "The specific model version to use (can be a branch name, tag name or commit id)."},
+    )
+    network: str = field(
+        default="nobunaga",
+        metadata={"help": "The network on which to train this model. Default is test net 'Nobunaga', main net is 'Nakamoto'"},
     )
     use_auth_token: bool = field(
         default=False,
@@ -247,6 +252,10 @@ def main():
     )
     logger.info(f"Training/evaluation parameters {training_args}")
 
+    # Set up Subtensor
+    subtensor = bittensor.subtensor(network=model_args.network)
+    
+
     # Detecting last checkpoint.
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
@@ -301,7 +310,8 @@ def main():
         # Download and load the mountain dataset from Bittensor's IPFS
         bittensor_dataset = bittensor.dataset(
             no_tokenizer=True, 
-            block_size = data_args.block_size
+            batch_size = subtensor.validator_batch_size, 
+            block_size = subtensor.validator_sequence_length + 1 if data_args.block_size is None else data_args.block_size
         )
 
         # Set up Bittensor dataloader 
