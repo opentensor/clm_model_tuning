@@ -133,3 +133,6 @@ dmypy.json
 
 # wandb files
 wandb/*
+
+# ide
+.idea/
