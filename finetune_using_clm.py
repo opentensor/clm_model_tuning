@@ -8,7 +8,6 @@ Here is the full list of checkpoints on the hub that can be fine-tuned by this s
 https://huggingface.co/models?filter=text-generation
 """
 
-import json
 import logging
 import math
 import os
@@ -39,11 +38,6 @@ import bittensor
 
 
 def check_cfg_and_load_defaults(cfg: DictConfig) -> DictConfig:
-    if cfg.bittensor.use_mountain_dataset is True and cfg.dataset.name is not None:
-        raise ValueError("You may either pass a local dataset or use Bittensor's, but not both.")
-
-    if not cfg.bittensor.use_mountain_dataset and cfg.dataset.name is None:
-        raise ValueError("No dataset was given.")
 
     subtensor = bittensor.subtensor(network=cfg.bittensor.network)
     if cfg.dataset.block_size is None:
@@ -75,7 +69,7 @@ def create_accelerator(cfg: DictConfig) -> Accelerator:
 
 def load_raw_datasets(cfg: DictConfig) -> DatasetDict:
 
-    if cfg.bittensor.use_mountain_dataset is True:
+    if cfg.dataset.name == "bittensor":
 
         dataset = bittensor.dataset(
             no_tokenizer=True,
@@ -89,8 +83,9 @@ def load_raw_datasets(cfg: DictConfig) -> DatasetDict:
         raw_datasets = Dataset.from_dict(bittensor_dataset)
 
         dataset.close()  # Avoid leaving threadqueue running.
+        return raw_datasets
 
-    else:
+    if os.path.exists(cfg.dataset.name):
         data_files = {"text": cfg.dataset.name}
         dataset_args = {}
 
@@ -101,6 +96,8 @@ def load_raw_datasets(cfg: DictConfig) -> DatasetDict:
             dataset_args["keep_linebreaks"] = cfg.dataset.keep_linebreaks
         raw_datasets = load_dataset(extension, data_files=data_files, **dataset_args)
         raw_datasets = raw_datasets["text"]
+    else:
+        raw_datasets = load_dataset(cfg.dataset.name, cfg.dataset.config_name)
 
     return raw_datasets
 
@@ -117,7 +114,9 @@ def load_model_and_tokenizer(cfg: DictConfig):
             cfg.tokenizer.name, use_fast=cfg.tokenizer.use_fast
         )
     else:
-        tokenizer = AutoTokenizer.from_pretrained(cfg.model.name, use_fast=cfg.tokenizer.use_fast)
+        tokenizer = AutoTokenizer.from_pretrained(
+            cfg.model.name, use_fast=cfg.tokenizer.use_fast
+        )
     tokenizer.pad_token = cfg.tokenizer.pad_token
 
     model = AutoModelForCausalLM.from_pretrained(
@@ -136,23 +135,31 @@ def create_optimizer(cfg, model):
     optimizer_grouped_parameters = [
         {
             "params": [
-                p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)
+                p
+                for n, p in model.named_parameters()
+                if not any(nd in n for nd in no_decay)
             ],
             "weight_decay": cfg.training.weight_decay,
         },
         {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if any(nd in n for nd in no_decay)
+            ],
             "weight_decay": 0.0,
         },
     ]
-    return torch.optim.AdamW(optimizer_grouped_parameters, lr=cfg.training.learning_rate)
+    return torch.optim.AdamW(
+        optimizer_grouped_parameters, lr=cfg.training.learning_rate
+    )
 
 
 def preprocess(cfg, accelerator, tokenizer, raw_datasets):
 
     # First we tokenize all the texts.
     column_names = raw_datasets.column_names
-    text_column_name = "text" if "text" in column_names else column_names[0]
+    text_column_name = "text" if "text" in column_names else column_names["train"][0]
     if cfg.dataset.concatenate_raw is True:
         pad = False
     else:
@@ -163,7 +170,9 @@ def preprocess(cfg, accelerator, tokenizer, raw_datasets):
         concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
         total_length = len(concatenated_examples[list(examples.keys())[0]])
         if total_length >= cfg.dataset.block_size:
-            total_length = (total_length // cfg.dataset.block_size) * cfg.dataset.block_size
+            total_length = (
+                total_length // cfg.dataset.block_size
+            ) * cfg.dataset.block_size
         # Split by chunks of max_len.
         result = {
             k: [
@@ -191,7 +200,6 @@ def preprocess(cfg, accelerator, tokenizer, raw_datasets):
             tokenize_fn,
             batched=True,
             num_proc=cfg.tokenizer.preprocessing_num_workers,
-            remove_columns=column_names,
             load_from_cache_file=not cfg.dataset.overwrite_cache,
             desc="Running tokenizer on dataset",
         )
@@ -248,12 +256,15 @@ def main(cfg: DictConfig):
     # Load and preprocess data
     raw_datasets = load_raw_datasets(cfg)
     tokenized_datasets = preprocess(cfg, accelerator, tokenizer, raw_datasets)
-    tokenized_datasets = tokenized_datasets.train_test_split(
-        test_size=cfg.training.val_split_percent / 100
-    )
-    tokenized_datasets_test_valid = tokenized_datasets["test"].train_test_split(test_size=0.5)
-    tokenized_datasets["test"] = tokenized_datasets_test_valid["train"]
-    tokenized_datasets["validation"] = tokenized_datasets_test_valid["test"]
+    if "train" not in tokenized_datasets.column_names:
+        tokenized_datasets = tokenized_datasets.train_test_split(
+            test_size=cfg.training.val_split_percent / 100
+        )
+        tokenized_datasets_test_valid = tokenized_datasets["test"].train_test_split(
+            test_size=0.5
+        )
+        tokenized_datasets["test"] = tokenized_datasets_test_valid["train"]
+        tokenized_datasets["validation"] = tokenized_datasets_test_valid["test"]
 
     train_dataset = tokenized_datasets["train"]
     eval_dataset = tokenized_datasets["validation"]
@@ -284,7 +295,9 @@ def main(cfg: DictConfig):
         train_dataloader,
         eval_dataloader,
         lr_scheduler,
-    ) = accelerator.prepare(model, optimizer, train_dataloader, eval_dataloader, lr_scheduler)
+    ) = accelerator.prepare(
+        model, optimizer, train_dataloader, eval_dataloader, lr_scheduler
+    )
 
     # Scheduler and math around the number of training steps.
     overrode_max_train_steps = False
@@ -292,7 +305,9 @@ def main(cfg: DictConfig):
         len(train_dataloader) / cfg.training.gradient_accumulation_steps
     )
     if cfg.training.max_train_steps is None:
-        cfg.training.max_train_steps = cfg.training.num_epochs * num_update_steps_per_epoch
+        cfg.training.max_train_steps = (
+            cfg.training.num_epochs * num_update_steps_per_epoch
+        )
         overrode_max_train_steps = True
 
     # We need to recalculate our total training steps as the size of the training dataloader
@@ -301,9 +316,13 @@ def main(cfg: DictConfig):
         len(train_dataloader) / cfg.training.gradient_accumulation_steps
     )
     if overrode_max_train_steps:
-        cfg.training.max_train_steps = cfg.training.num_epochs * num_update_steps_per_epoch
+        cfg.training.max_train_steps = (
+            cfg.training.num_epochs * num_update_steps_per_epoch
+        )
     # Afterwards we recalculate our number of training epochs
-    cfg.training.num_epochs = math.ceil(cfg.training.max_train_steps / num_update_steps_per_epoch)
+    cfg.training.num_epochs = math.ceil(
+        cfg.training.max_train_steps / num_update_steps_per_epoch
+    )
 
     # We need to initialize the trackers we use, and also store our configuration.
     # We initialize the trackers only on main process because `accelerator.log`
@@ -311,13 +330,17 @@ def main(cfg: DictConfig):
     if cfg.tracking.enabled is True and accelerator.is_main_process:
         experiment_config = vars(cfg)
         # TensorBoard cannot log Enums, need the raw value
-        experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
+        experiment_config["lr_scheduler_type"] = experiment_config[
+            "lr_scheduler_type"
+        ].value
         accelerator.init_trackers("finetune_using_clm", experiment_config)
 
     logger.info("***** Running training *****")
     logger.info(f"  Num examples = {len(train_dataset)}")
     logger.info(f"  Num Epochs = {cfg.training.num_epochs}")
-    logger.info(f"  Gradient Accumulation steps = {cfg.training.gradient_accumulation_steps}")
+    logger.info(
+        f"  Gradient Accumulation steps = {cfg.training.gradient_accumulation_steps}"
+    )
     logger.info(f"  Total optimization steps = {cfg.training.max_train_steps}")
 
     # Only show the progress bar once on each machine.
@@ -330,10 +353,12 @@ def main(cfg: DictConfig):
     starting_epoch = 0
 
     # Potentially load in the weights and states from a previous save
-    if cfg.checkpoint.resume_from_checkpoint > 0:
-        accelerator.print(f"Resumed from checkpoint: {cfg.checkpoint.resume_from_checkpoint}")
-        accelerator.load_state(cfg.checkpoint.resume_from_checkpoint)
-        path = os.path.basename(cfg.checkpoint.resume_from_checkpoint)
+    if cfg.training.checkpoint.resume_from_checkpoint > 0:
+        accelerator.print(
+            f"Resumed from checkpoint: {cfg.training.checkpoint.resume_from_checkpoint}"
+        )
+        accelerator.load_state(cfg.training.checkpoint.resume_from_checkpoint)
+        path = os.path.basename(cfg.training.checkpoint.resume_from_checkpoint)
         training_difference = os.path.splitext(path)[0]
 
         if "epoch" in training_difference:
@@ -351,14 +376,19 @@ def main(cfg: DictConfig):
         train_losses = []
         for step, batch in enumerate(train_dataloader):
             # We need to skip steps until we reach the resumed step
-            if cfg.training.checkpoint.resume_from_checkpoint and epoch == starting_epoch:
+            if (
+                cfg.training.checkpoint.resume_from_checkpoint
+                and epoch == starting_epoch
+            ):
                 if resume_step is not None and step < resume_step:
                     completed_steps += 1
                     continue
 
             outputs = model(**batch)
             loss = outputs.loss
-            train_losses.append(accelerator.gather(loss.repeat(cfg.training.train_batch_size)))
+            train_losses.append(
+                accelerator.gather(loss.repeat(cfg.training.train_batch_size))
+            )
             # We keep track of the loss at each epoch
             if cfg.tracking.enabled is True:
                 total_loss += loss.detach().float()
@@ -425,7 +455,7 @@ def main(cfg: DictConfig):
                 step=completed_steps,
             )
 
-        print("done epoch ", epoch)
+        logger.info("done epoch ", epoch)
 
     if cfg.output_dir is not None:
         accelerator.wait_for_everyone()
