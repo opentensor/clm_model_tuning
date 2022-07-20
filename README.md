@@ -46,7 +46,7 @@ python finetune_using_clm.py model.name=distilgpt2
 ```
 
 Some sample models to try are available under the server customization section of 
-[bittensor's documentation](docs.bittensor.com). A full list of models that can be trained by this
+[bittensor's documentation](https://docs.bittensor.com). A full list of models that can be trained by this
 script are available on [huggingface](https://huggingface.co/models?filter=text-generation).
 
 ### On huggingface datasets
@@ -84,7 +84,7 @@ tuned model:
 btcli run ..... --neuron.model_name=/home/user/models/my-tuned-gpt2
 ```
 
-## Limitations
+## Limitations & Warnings
 
 Early stopping is not yet supported. Many features are implemented but not thoroughly tested, if
 you encounter an issue, reach out on discord or (preferably) create an issue on this github page.
