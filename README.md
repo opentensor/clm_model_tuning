@@ -73,7 +73,8 @@ the number of batches.
 ### Configuring training parameters
 
 All configurable parameters are visible and documented in `conf/config.yaml`. 
-The defaults are chosen for quick training and not tuned; you will need to adjust these accordingly.
+The defaults are chosen for quick training and not tuned; you will need to experiment and adjust 
+these.
 
 
 ## Serving custom models on bittensor
