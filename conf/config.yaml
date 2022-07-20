@@ -1,0 +1,51 @@
+output_dir: "tuned-model"
+
+bittensor:
+  use_mountain_dataset: true
+  network: "nobunaga"
+
+dataset:
+  name: null # path to a .txt file to load if using a local dataset to finetune.
+  num_batches: 10
+  block_size: null # if null, defaults to bittensor's validator sequence length.
+
+  overwrite_cache: false
+  keep_linebreaks: true
+  concatenate_raw: false # don't use this with bittensor's dataset unless you want to train on trash
+
+model:
+  name: gpt2
+  config_name: null
+
+tokenizer:
+  name: null
+  use_fast: true
+  preprocessing_num_workers: null
+  pad_token: "[PAD]"
+
+training:
+  seed: null
+  val_split_percent: 5
+  train_batch_size: null
+  eval_batch_size: null
+  learning_rate: 1e-5
+  weight_decay: 0.0
+  num_epochs: 1
+  max_train_steps: null
+  gradient_accumulation_steps: 1
+  lr_scheduler: "constant" # ["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"]
+  lr_warmup_steps: 0
+  eval_every: 50
+
+  checkpoint:
+    resume_from_checkpoint: 0 # integer representing which checkpoint to load from, or <= 0 to not
+    every_n_steps: null
+
+hub:
+  push_to_hub: false
+  model_id: null
+  token: null
+
+tracking:
+  enabled: false
+  report_to: "all"
