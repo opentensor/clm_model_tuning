@@ -1,4 +1,4 @@
-# ModelGuide
+# CLM Model Tuning
 
 <!---
 Copyright 2020 The OpenTensor Team. All rights reserved.
@@ -17,66 +17,74 @@ limitations under the License.
 -->
 
 **Note**: This script was adapted from HuggingFace's Transformers/language-modeling code.
-## Language model training
 
-Fine-tuning (or training from scratch) the library models for language modeling on a text dataset for GPT, GPT-2. Causal languages like this are trained or fine-tuned using a causal language modeling (CLM) loss.
+## Installation & Requirements
+`bittensor` must be installed either locally or in the virtual environment you are working from.
 
-The following examples, we will run on datasets hosted on Bittensor's IPFS mountain dataset, on HuggingFace's dataset [hub](https://huggingface.co/datasets) or with your own text files for training and validation. We give examples of both below.
+Run ```pip install -r requirements.txt``` to install the additional packages for this script.
 
-### GPT-2/GPT and causal language modeling
+## Language model tuning
 
-The following example fine-tunes GPT-2 on WikiText-2 from the Huggingface repository. We're using the raw WikiText-2 (no tokens were replaced before
-the tokenization). The loss here is that of causal language modeling.
+Fine-tuning the library models for language modeling on a text dataset 
+for GPT, GPT-2. Causal languages like this are trained or fine-tuned using a causal language 
+modeling (CLM) loss.
 
+The following examples, we will run on datasets hosted on Bittensor's IPFS mountain dataset, 
+on HuggingFace's dataset [hub](https://huggingface.co/datasets) or with your own text files.
+
+### On bittensor
+
+By default, the script will fine-tune GPT2 for bittensor's mountain dataset. Running:
 ```bash
-python run_clm.py \
-    --model_name_or_path gpt2 \
-    --dataset_name wikitext \
-    --dataset_config_name wikitext-2-raw-v1 \
-    --per_device_train_batch_size 8 \
-    --per_device_eval_batch_size 8 \
-    --do_train \
-    --do_eval \
-    --output_dir /tmp/test-clm
+python finetune_using_clm.py
+```
+will tune gpt2 with bittensor's dataset and save the output to `tuned-model`.
+
+to change the model you are tuning to, e.g. `distilgpt2`, run:
+```bash
+python finetune_using_clm.py model.name=distilgpt2
 ```
 
-To train it on Bittensor's Mountain dataset, you simply need to change `dataset_name` with "bittensor", as follows:
+Some sample models to try are available under the server customization section of 
+[bittensor's documentation](docs.bittensor.com). A full list of models that can be trained by this
+script are available on [huggingface](https://huggingface.co/models?filter=text-generation).
+
+### On huggingface datasets
+
+Any text dataset on [huggingface](https://huggingface.co/datasets) should work by default by
+overriding the `dataset.name` and `dataset.config` parameters:
 
 ```bash
-python run_clm.py \
-    --model_name_or_path gpt2 \
-    --dataset_name bittensor \
-    --dataset_config_name bittensor \
-    --per_device_train_batch_size 8 \
-    --per_device_eval_batch_size 8 \
-    --do_train \
-    --do_eval \
-    --output_dir /tmp/test-clm
+python finetune_using_clm.py dataset.name=wikitext dataset.config_name=wikitext-103-v1
 ```
 
-This takes about half an hour to train on a single K80 GPU and about one minute for the evaluation to run. It reaches
-a score of ~20 perplexity once fine-tuned on the dataset.
+### On your own data
 
-To run on your own training and validation files, use the following command:
-
+If you have a .txt file saved locally, you can override `dataset.name` as above:
 ```bash
-python run_clm.py \
-    --model_name_or_path gpt2 \
-    --train_file path_to_train_file \
-    --validation_file path_to_validation_file \
-    --per_device_train_batch_size 8 \
-    --per_device_eval_batch_size 8 \
-    --do_train \
-    --do_eval \
-    --output_dir /tmp/test-clm
+python finetune_using_clm.py dataset.name=./path/to/your/data.txt
 ```
 
-## Creating a model on the fly
+**Note** if using your own data, you may have many short sentences and the block size may be 
+insufficient for reasonable performance. It's recommended you pass the flag
+`dataset.concatenate_raw=true` to give the model more context when training. This will reduce
+the number of batches.
 
-When training a model from scratch, configuration values may be overridden with the help of `--config_overrides`:
+### Configuring training parameters
+
+All configurable parameters are visible and documented in `conf/config.yaml`. 
+The defaults are chosen for quick training and not tuned; you will need to adjust these accordingly.
 
 
+## Serving custom models on bittensor
+
+To serve your tuned model on bittensor, just override `neuron.model_name` with the path to your 
+tuned model:
 ```bash
-python run_clm.py --model_type gpt2 --tokenizer_name gpt2 \ --config_overrides="n_embd=1024,n_head=16,n_layer=48,n_positions=102" \
-[...]
+btcli run ..... --neuron.model_name=/home/user/models/my-tuned-gpt2
 ```
+
+## Limitations
+
+Early stopping is not yet supported. Many features are implemented but not thoroughly tested, if
+you encounter an issue, reach out on discord or (preferably) create an issue on this github page.
