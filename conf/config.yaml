@@ -1,17 +1,18 @@
 output_dir: "tuned-model"
 
 bittensor:
-  use_mountain_dataset: true
   network: "nobunaga"
 
 dataset:
-  name: null # path to a .txt file to load if using a local dataset to finetune.
+  # either 'bittensor', a local path, or one from huggingface
+  name: "bittensor"
+  config_name: null # necessary for huggingface datasets
   num_batches: 10
   block_size: null # if null, defaults to bittensor's validator sequence length.
 
   overwrite_cache: false
   keep_linebreaks: true
-  concatenate_raw: false # don't use this with bittensor's dataset unless you want to train on trash
+  concatenate_raw: false # only really necessary when loading a local .txt file
 
 model:
   name: gpt2
@@ -26,8 +27,11 @@ tokenizer:
 training:
   seed: null
   val_split_percent: 5
+
+  # if null these both default to bittensor's validator batch size
   train_batch_size: null
   eval_batch_size: null
+
   learning_rate: 1e-5
   weight_decay: 0.0
   num_epochs: 1
@@ -40,11 +44,6 @@ training:
   checkpoint:
     resume_from_checkpoint: 0 # integer representing which checkpoint to load from, or <= 0 to not
     every_n_steps: null
-
-hub:
-  push_to_hub: false
-  model_id: null
-  token: null
 
 tracking:
   enabled: false
