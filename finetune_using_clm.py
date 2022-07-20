@@ -455,7 +455,7 @@ def main(cfg: DictConfig):
                 step=completed_steps,
             )
 
-        logger.info("done epoch ", epoch)
+        logger.info(f"done epoch {epoch}")
 
     if cfg.output_dir is not None:
         accelerator.wait_for_everyone()
