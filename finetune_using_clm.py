@@ -117,7 +117,9 @@ def load_model_and_tokenizer(cfg: DictConfig):
         tokenizer = AutoTokenizer.from_pretrained(
             cfg.model.name, use_fast=cfg.tokenizer.use_fast
         )
-    tokenizer.pad_token = cfg.tokenizer.pad_token
+    #tokenizer.pad_token = cfg.tokenizer.pad_token
+    if tokenizer.pad_token is None and tokenizer.eos_token is not None:
+        tokenizer.pad_token = tokenizer.eos_token
 
     model = AutoModelForCausalLM.from_pretrained(
         cfg.model.name,
