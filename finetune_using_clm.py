@@ -36,6 +36,12 @@ from transformers import (
 
 import bittensor
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# model = CreateModel()
+
+# model= nn.DataParallel(model)
+# model.to(device)
 
 def check_cfg_and_load_defaults(cfg: DictConfig) -> DictConfig:
 
@@ -291,6 +297,14 @@ def main(cfg: DictConfig):
     )
 
     # Prepare everything using our accelerator
+    model = model.to(device)
+    for data, target in train_dataloader:
+        data = data.to(device)
+        target = traget.to(device)
+     for data, target in eval_dataloader:
+        data = data.to(device)
+        target = traget.to(device)
+        
     (
         model,
         optimizer,
@@ -387,7 +401,9 @@ def main(cfg: DictConfig):
                     continue
 
             outputs = model(**batch)
+         
             loss = outputs.loss
+            loss = loss.to(device)
             train_losses.append(
                 accelerator.gather(loss.repeat(cfg.training.train_batch_size))
             )
