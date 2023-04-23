@@ -38,20 +38,18 @@ import bittensor
 
 
 def check_cfg_and_load_defaults(cfg: DictConfig) -> DictConfig:
-
     subtensor = bittensor.subtensor(network=cfg.bittensor.network)
     if cfg.dataset.block_size is None:
-        cfg.dataset.block_size = subtensor.validator_sequence_length
+        cfg.dataset.block_size = subtensor.validator_sequence_length(netuid=cfg.bittensor.netuid)
     if cfg.training.train_batch_size is None:
-        cfg.training.train_batch_size = subtensor.validator_batch_size
+        cfg.training.train_batch_size = subtensor.validator_batch_size(netuid=cfg.bittensor.netuid)
     if cfg.training.eval_batch_size is None:
-        cfg.training.eval_batch_size = subtensor.validator_batch_size
+        cfg.training.eval_batch_size = subtensor.validator_batch_size(netuid=cfg.bittensor.netuid)
 
     return cfg
 
 
 def create_accelerator(cfg: DictConfig) -> Accelerator:
-
     accelerator = (
         Accelerator(log_with=cfg.tracking.report_to, logging_dir=cfg.output_dir)
         if cfg.tracking.enabled
@@ -68,7 +66,6 @@ def create_accelerator(cfg: DictConfig) -> Accelerator:
 
 
 def load_raw_datasets(cfg: DictConfig) -> DatasetDict:
-
     if cfg.dataset.name == "bittensor":
 
         dataset = bittensor.dataset(
@@ -103,7 +100,6 @@ def load_raw_datasets(cfg: DictConfig) -> DatasetDict:
 
 
 def load_model_and_tokenizer(cfg: DictConfig):
-
     if cfg.model.config_name is not None:
         config = AutoConfig.from_pretrained(cfg.model.config_name)
     else:
@@ -117,7 +113,7 @@ def load_model_and_tokenizer(cfg: DictConfig):
         tokenizer = AutoTokenizer.from_pretrained(
             cfg.model.name, use_fast=cfg.tokenizer.use_fast
         )
-    #tokenizer.pad_token = cfg.tokenizer.pad_token
+    # tokenizer.pad_token = cfg.tokenizer.pad_token
     if tokenizer.pad_token is None and tokenizer.eos_token is not None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -132,7 +128,6 @@ def load_model_and_tokenizer(cfg: DictConfig):
 
 
 def create_optimizer(cfg, model):
-
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
         {
@@ -158,7 +153,6 @@ def create_optimizer(cfg, model):
 
 
 def preprocess(cfg, accelerator, tokenizer, raw_datasets):
-
     # First we tokenize all the texts.
     column_names = raw_datasets.column_names
     text_column_name = "text" if "text" in column_names else column_names["train"][0]
@@ -173,12 +167,12 @@ def preprocess(cfg, accelerator, tokenizer, raw_datasets):
         total_length = len(concatenated_examples[list(examples.keys())[0]])
         if total_length >= cfg.dataset.block_size:
             total_length = (
-                total_length // cfg.dataset.block_size
-            ) * cfg.dataset.block_size
+                                   total_length // cfg.dataset.block_size
+                           ) * cfg.dataset.block_size
         # Split by chunks of max_len.
         result = {
             k: [
-                t[i : i + cfg.dataset.block_size]
+                t[i: i + cfg.dataset.block_size]
                 for i in range(0, total_length, cfg.dataset.block_size)
             ]
             for k, t in concatenated_examples.items()
@@ -220,7 +214,6 @@ def preprocess(cfg, accelerator, tokenizer, raw_datasets):
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
-
     cfg = check_cfg_and_load_defaults(cfg)
     os.makedirs(cfg.output_dir, exist_ok=True)
 
@@ -308,7 +301,7 @@ def main(cfg: DictConfig):
     )
     if cfg.training.max_train_steps is None:
         cfg.training.max_train_steps = (
-            cfg.training.num_epochs * num_update_steps_per_epoch
+                cfg.training.num_epochs * num_update_steps_per_epoch
         )
         overrode_max_train_steps = True
 
@@ -319,7 +312,7 @@ def main(cfg: DictConfig):
     )
     if overrode_max_train_steps:
         cfg.training.max_train_steps = (
-            cfg.training.num_epochs * num_update_steps_per_epoch
+                cfg.training.num_epochs * num_update_steps_per_epoch
         )
     # Afterwards we recalculate our number of training epochs
     cfg.training.num_epochs = math.ceil(
@@ -379,8 +372,8 @@ def main(cfg: DictConfig):
         for step, batch in enumerate(train_dataloader):
             # We need to skip steps until we reach the resumed step
             if (
-                cfg.training.checkpoint.resume_from_checkpoint
-                and epoch == starting_epoch
+                    cfg.training.checkpoint.resume_from_checkpoint
+                    and epoch == starting_epoch
             ):
                 if resume_step is not None and step < resume_step:
                     completed_steps += 1
@@ -398,8 +391,8 @@ def main(cfg: DictConfig):
             accelerator.backward(loss)
 
             if (
-                step % cfg.training.gradient_accumulation_steps == 0
-                or step == len(train_dataloader) - 1
+                    step % cfg.training.gradient_accumulation_steps == 0
+                    or step == len(train_dataloader) - 1
             ):
                 optimizer.step()
                 lr_scheduler.step()
