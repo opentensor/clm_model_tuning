@@ -1,7 +1,8 @@
 output_dir: "tuned-model"
 
 bittensor:
-  network: "nobunaga"
+  network: "finney"
+  netuid: 3
 
 dataset:
   # either 'bittensor', a local path, or one from huggingface
